@@ -100,3 +100,10 @@ rse <- as(dds, "RangedSummarizedExperiment")
 counts <- rse %>% tidybulk()
 head(counts)
 tail(counts)
+
+# remove "L" from "PBL"
+counts_format <- counts %>% 
+  mutate(Region = str_remove(Region, "L")) %>%
+  mutate(group = str_remove(group, "L"))
+levels(factor(counts_format$group))
+levels(factor(counts_format$Region))
