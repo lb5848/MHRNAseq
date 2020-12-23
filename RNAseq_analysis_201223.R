@@ -4,6 +4,7 @@ rm(list = ls())
 
 library(DESeq2)
 library(hciR)
+library(ggplotify)
 
 # tidyverse core packages
 library(tibble)
@@ -19,6 +20,9 @@ library(tidybulk)
 library(ggrepel)
 library(plotly)
 library(GGally)
+
+# colorblind-friendly packages
+library(dittoSeq)
 
 
 
@@ -111,68 +115,10 @@ vsd <- vst(dds, blind = TRUE)
 vsd_mat <- assay(vsd)
 
 DESeq2::plotPCA(vsd, intgroup = "group", ntop = 500)
-ggsave(file.path(savePath, "PCA_4pts_activated.svg"), plot = last_plot())
-ggsave(file.path(savePath, "PCA_4pts_activated.png"), plot = last_plot())
-
-# ============================== tidybulk ==================================
-# coerce DESeqDataSet to RangedSummarizedExperiment
-rse <- as(dds, "RangedSummarizedExperiment")
-
-counts <- rse %>% tidybulk()
-head(counts)
-tail(counts)
-
-# # remove "L" from "PBL"
-# counts_format <- counts %>% 
-#   mutate(Region = str_remove(Region, "L")) %>%
-#   mutate(group = str_remove(group, "L"))
-# levels(factor(counts_format$group))
-# levels(factor(counts_format$Region))
-
-counts_scaled <- counts_format %>%
-  identify_abundant(factor_of_interest = group, minimum_counts = 10, minimum_proportion = 0.25) %>%
-  keep_abundant() %>% keep_variable(top = 500) %>%
-  scale_abundance()
-
-
-counts_scaled %>%
-  filter(.abundant) %>%
-  pivot_longer(cols = c("counts", "counts_scaled"), names_to = "source", values_to = "abundance") %>%
-  ggplot(aes(x = abundance + 1, color = sample)) +
-  geom_density() +
-  facet_wrap(~source) +
-  scale_x_log10() +
-  theme_bw()
-
-counts_scal_PCA <-
-  counts_scaled %>%
-  reduce_dimensions(method = "PCA", top = 500)
-
-counts_scal_PCA %>%
-  pivot_sample() %>%
-  ggplot(aes(x = PC1, y = PC2, colour = group)) +
-  geom_point(size = 4) +
-  geom_text_repel(aes(label = ""), show.legend = FALSE) +
-  theme_bw()
-
-counts_scaled %>%
-  
-  # filter lowly abundant
-  filter(.abundant) %>%
-  
-  # extract 500 most variable genes
-  keep_variable( .abundance = counts_scaled, top = 500) %>%
-  
-  # create heatmap
-  heatmap(
-    .column = sample,
-    .row = feature,
-    .value = counts_scaled,
-    annotation = c(group),
-    transform = log1p
-  )
-
-############################ back to DESeq2 ################################
+pcaplot <- DESeq2::plotPCA(vsd, intgroup = "group", ntop = 500)
+class(pcaplot)
+ggsave(file.path(savePath, "PCA_4pts_activated.svg"), plot = pcaplot)
+ggsave(file.path(savePath, "PCA_4pts_activated.png"), plot = pcaplot)
 
 dds <- DESeq(dds, test = "Wald")
 resultsNames(dds)
@@ -195,3 +141,103 @@ lapply(1:length(res_sig), function(i){
     fwrite(file.path(csvPath, paste0(names(res_sig[i]), ".csv")))
 })
 write_deseq(res_sig, dds, vsd, file = file.path(csvPath, "DESeq2_results.xlsx"))
+
+ddsLRT <- dds
+ddsLRT <- DESeq(ddsLRT, test = "LRT", reduced = ~ ID)
+
+resultsNames(ddsLRT)
+resLRT <- results(ddsLRT, name = resultsNames(ddsLRT)[6])
+p.adj.cutoff <- 0.01
+log2FC.cutoff <- 2
+
+sig_resLRT <- resLRT %>% data.frame() %>% 
+  rownames_to_column(var = "id") %>%
+  as_tibble() %>%
+  filter(padj < p.adj.cutoff) %>%
+  filter(abs(log2FoldChange) >= log2FC.cutoff)
+
+sig_resLRThciR <- sig_resLRT %>% data.frame() %>% column_to_rownames( var = "id" ) %>%
+  rownames_to_column(var = "id") %>%
+  as_tibble()
+
+x <- top_counts(sig_resLRThciR, vsd, top = 400, filter = TRUE, sort_fc = TRUE)
+
+plot_genes(x, intgroup = "group", scale = "diff", show_rownames = FALSE, annotation_names_col = FALSE, 
+           show_colnames = TRUE)
+plot <- plot_genes(x, intgroup = "group", scale = "diff", show_rownames = FALSE, 
+                   annotation_names_col = FALSE, show_colnames = FALSE, output = "pheatmap")
+plot <- as.ggplot(plot, scale = 1, hjust = 0, vjust = 0)
+ggsave(file.path(savePath, "heatmap400genesBMHvsN.svg"), plot = plot)
+ggsave(file.path(savePath, "heatmap400genesBMHvsN.png"), plot = plot)
+# ============================== tidybulk ==================================
+# coerce DESeqDataSet to RangedSummarizedExperiment
+dds_tt <- DESeqDataSetFromMatrix(countData = rowname_cts, colData = col.data, 
+                                 design = ~ ID + Condition)
+# setup multifactorial design
+
+# create "group" - ?levels "BM_Norm", "PBL_Norm", "BM_Hyp", "PBL_Hyp"
+dds_tt$group <- factor(paste0(dds_tt$Region, "_", dds_tt$Condition),
+                    levels = c("BM_Norm", "PBL_Norm", "BM_Hyp", "PBL_Hyp"))
+design(dds_tt) <- formula(~ ID + group)
+rse <- as(dds_tt, "RangedSummarizedExperiment")
+
+counts <- rse %>% tidybulk()
+head(counts)
+tail(counts)
+
+# Plot Settings
+# Use colourblind-friendly colours
+friendly_cols <- dittoSeq::dittoColors()
+
+# Set theme
+custom_theme <-
+  list(
+    scale_fill_manual(values = friendly_cols),
+    scale_color_manual(values = friendly_cols),
+    theme_bw() +
+      theme(
+        panel.border = element_blank(),
+        axis.line = element_line(),
+        panel.grid.major = element_line(size = 0.2),
+        panel.grid.minor = element_line(size = 0.1),
+        text = element_text(size = 12),
+        legend.position = "bottom",
+        strip.background = element_blank(),
+        axis.title.x = element_text(margin = margin(t = 10, r = 10, b = 10, l = 10)),
+        axis.title.y = element_text(margin = margin(t = 10, r = 10, b = 10, l = 10)),
+        axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1)
+      )
+  )
+
+counts_tt <- counts %>%
+  mutate(sample = str_remove(sample, "L")) %>%
+  mutate(Region = str_remove(Region, "L")) %>%
+  mutate(group = str_remove(group, "L"))
+  
+counts_filtered <- counts_tt %>% keep_abundant(factor_of_interest = group)
+
+counts_scaled <- counts_filtered %>% scale_abundance()
+
+counts_scaled %>%
+  pivot_longer(cols = c("counts", "counts_scaled"), names_to = "source", values_to = "abundance") %>%
+  ggplot(aes(x = abundance + 1, color = sample)) +
+  geom_density() +
+  facet_wrap(~ source) +
+  scale_x_log10() +
+  custom_theme
+
+counts_scal_PCA <-
+  counts_scaled %>%
+  reduce_dimensions(method = "PCA", top = 1500)
+
+counts_scal_PCA %>% pivot_sample()
+
+# PCA plot 
+counts_scal_PCA %>%
+  pivot_sample() %>%
+  ggplot(aes(x = PC1, y = PC2, colour = group)) +
+  geom_point(size = 4) +
+  geom_text_repel(aes(label = ""), show.legend = FALSE) +
+  custom_theme
+
+
