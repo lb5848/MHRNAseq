@@ -5,6 +5,7 @@ rm(list = ls())
 library(DESeq2)
 library(hciR)
 library(ggplotify)
+library(data.table)
 
 # tidyverse core packages
 library(tibble)
@@ -104,11 +105,12 @@ dds$group <- factor(paste0(dds$Region, "_", dds$Condition),
 design(dds) <- formula(~ ID + group)
 
 # Pre-Filtering
-dim(dds)
-keep <- rowSums( counts(dds) ) >= 25
-summary(keep)
-dds <- dds[ keep, ]
-dim(dds)
+
+# dim(dds)
+# keep <- rowSums( counts(dds) ) >= 25
+# summary(keep)
+# dds <- dds[ keep, ]
+# dim(dds)
 
 # varianceStabilizingTransformation
 vsd <- vst(dds, blind = TRUE)
@@ -171,6 +173,7 @@ ggsave(file.path(savePath, "heatmap400genesBMHvsN.svg"), plot = plot)
 ggsave(file.path(savePath, "heatmap400genesBMHvsN.png"), plot = plot)
 # ============================== tidybulk ==================================
 # coerce DESeqDataSet to RangedSummarizedExperiment
+
 dds_tt <- DESeqDataSetFromMatrix(countData = rowname_cts, colData = col.data, 
                                  design = ~ ID + Condition)
 # setup multifactorial design
@@ -179,6 +182,13 @@ dds_tt <- DESeqDataSetFromMatrix(countData = rowname_cts, colData = col.data,
 dds_tt$group <- factor(paste0(dds_tt$Region, "_", dds_tt$Condition),
                     levels = c("BM_Norm", "PBL_Norm", "BM_Hyp", "PBL_Hyp"))
 design(dds_tt) <- formula(~ ID + group)
+
+# Pre-Filtering
+# dim(dds_tt)
+# keep <- rowSums( counts(dds_tt) ) >= 25
+# summary(keep)
+# dds_tt <- dds_tt[ keep, ]
+# dim(dds_tt)
 rse <- as(dds_tt, "RangedSummarizedExperiment")
 
 counts <- rse %>% tidybulk()
@@ -218,6 +228,7 @@ counts_filtered <- counts_tt %>% keep_abundant(factor_of_interest = group)
 
 counts_scaled <- counts_filtered %>% scale_abundance()
 
+
 counts_scaled %>%
   pivot_longer(cols = c("counts", "counts_scaled"), names_to = "source", values_to = "abundance") %>%
   ggplot(aes(x = abundance + 1, color = sample)) +
@@ -228,7 +239,7 @@ counts_scaled %>%
 
 counts_scal_PCA <-
   counts_scaled %>%
-  reduce_dimensions(method = "PCA", top = 1500)
+  reduce_dimensions(method = "PCA", top = 2500)
 
 counts_scal_PCA %>% pivot_sample()
 
@@ -240,4 +251,20 @@ counts_scal_PCA %>%
   geom_text_repel(aes(label = ""), show.legend = FALSE) +
   custom_theme
 
+# Hierarchical clustering - heatmap 
+counts_scaled %>%
+  
+  # extract 500 most variable genes
+  keep_variable(.abundance = counts_scaled, top = 500) %>%
+  
+  group_by(group) %>%
+  
+  # create heatmap
+  heatmap(
+    .column = sample,
+    .row = feature,
+    .value = counts_scaled,
+    transform = log1p
+  ) %>%
+  add_tile(group)
 
