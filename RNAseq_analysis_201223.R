@@ -135,6 +135,8 @@ design(dds)
 
 res <- results_all(dds, vs = "all", trt = "group")
 
+plot_volcano(res[[6]])
+
 p.adj.cutoff <- 0.01
 log2FC.cutoff <- 2
 res_sig <- res %>% lapply(function(x) {
@@ -188,7 +190,7 @@ gene_clusters <- x %>% cbind(., cluster = cutree(out$tree_row, k = 6)) %>%
 # ============================== tidybulk ==================================
 # coerce DESeqDataSet to RangedSummarizedExperiment
 cts <- rowname_cts %>% filter(rownames(rowname_cts) %in% top500_pca)
-dds_tt <- DESeqDataSetFromMatrix(countData = cts, colData = col.data, 
+dds_tt <- DESeqDataSetFromMatrix(countData = rowname_cts, colData = col.data, 
                                  design = ~ ID + Condition)
 # setup multifactorial design
 
