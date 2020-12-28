@@ -129,7 +129,7 @@ design(dds)
 res <- results_all(dds, vs = "all", trt = "group")
 
 p.adj.cutoff <- 0.01
-log2FC.cutoff <- 2
+log2FC.cutoff <- 1.5
 res_sig <- res %>% lapply(function(x) {
   x <- x %>% as_tibble() %>% filter(padj < p.adj.cutoff) %>% 
     filter(abs(log2FoldChange) >= log2FC.cutoff)})
@@ -143,6 +143,12 @@ lapply(1:length(res_sig), function(i){
     fwrite(file.path(csvPath, paste0(names(res_sig[i]), ".csv")))
 })
 write_deseq(res_sig, dds, vsd, file = file.path(csvPath, "DESeq2_results.xlsx"))
+
+# save all genes - for volcano plot
+lapply(1:length(res), function(i){
+  res[[i]] %>% as_tibble() %>% arrange(padj) %>% 
+    fwrite(file.path(csvPath, paste0("all_",names(res[i]), ".csv")))
+})
 
 ddsLRT <- dds
 ddsLRT <- DESeq(ddsLRT, test = "LRT", reduced = ~ ID)

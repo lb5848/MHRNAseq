@@ -189,7 +189,7 @@ gene_clusters <- x %>% cbind(., cluster = cutree(out$tree_row, k = 6)) %>%
 
 # ============================== tidybulk ==================================
 # coerce DESeqDataSet to RangedSummarizedExperiment
-cts <- rowname_cts %>% filter(rownames(rowname_cts) %in% top500_pca)
+# cts <- rowname_cts %>% filter(rownames(rowname_cts) %in% top500_pca)
 dds_tt <- DESeqDataSetFromMatrix(countData = rowname_cts, colData = col.data, 
                                  design = ~ ID + Condition)
 # setup multifactorial design
@@ -197,7 +197,7 @@ dds_tt <- DESeqDataSetFromMatrix(countData = rowname_cts, colData = col.data,
 # create "group" - ?levels "BM_Norm", "PBL_Norm", "BM_Hyp", "PBL_Hyp"
 dds_tt$group <- factor(paste0(dds_tt$Region, "_", dds_tt$Condition),
                     levels = c("BM_Norm", "PBL_Norm", "BM_Hyp", "PBL_Hyp"))
-design(dds_tt) <- formula(~ ID + group)
+design(dds_tt) <- formula(~ group + ID)
 
 # Pre-Filtering
 dim(dds_tt)
@@ -253,6 +253,8 @@ counts_scaled %>%
   facet_wrap(~ source) +
   scale_x_log10() +
   custom_theme
+
+
 
 counts_scal_PCA <-
   counts_scaled %>%
