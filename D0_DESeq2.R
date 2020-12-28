@@ -97,6 +97,8 @@ summary(keep)
 dds <- dds[ keep, ]
 dim(dds)
 
+dds_tt <- dds
+
 # varianceStabilizingTransformation
 vsd <- vst(dds, blind = TRUE)
 vsd_mat <- assay(vsd)
@@ -119,3 +121,80 @@ plotMA(res)
 resLFC <- lfcShrink(dds, coef = "Region_BM_vs_PBL", type="apeglm")
 plotMA(resLFC)
 
+# ============================== tidybulk ==================================
+
+rse <- as(dds_tt, "RangedSummarizedExperiment")
+
+counts <- rse %>% tidybulk()
+head(counts)
+tail(counts)
+
+# Plot Settings
+# Use colourblind-friendly colours
+friendly_cols <- dittoSeq::dittoColors()
+
+# Set theme
+custom_theme <-
+  list(
+    scale_fill_manual(values = friendly_cols),
+    scale_color_manual(values = friendly_cols),
+    theme_bw() +
+      theme(
+        panel.border = element_blank(),
+        axis.line = element_line(),
+        panel.grid.major = element_line(size = 0.2),
+        panel.grid.minor = element_line(size = 0.1),
+        text = element_text(size = 12),
+        legend.position = "bottom",
+        strip.background = element_blank(),
+        axis.title.x = element_text(margin = margin(t = 10, r = 10, b = 10, l = 10)),
+        axis.title.y = element_text(margin = margin(t = 10, r = 10, b = 10, l = 10)),
+        axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1)
+      )
+  )
+
+counts_tt <- counts %>%
+  mutate(sample = str_remove(sample, "L")) %>%
+  mutate(Region = str_remove(Region, "L"))
+
+counts_filtered <- counts_tt %>% keep_abundant(factor_of_interest = Region)
+
+counts_scaled <- counts_filtered %>% scale_abundance()
+
+
+counts_scaled %>%
+  pivot_longer(cols = c("counts", "counts_scaled"), names_to = "source", values_to = "abundance") %>%
+  ggplot(aes(x = abundance + 1, color = sample)) +
+  geom_density() +
+  facet_wrap(~ source) +
+  scale_x_log10() +
+  custom_theme
+
+counts_scal_PCA <-
+  counts_scaled %>%
+  reduce_dimensions(method = "PCA", top = 500)
+
+counts_scal_PCA %>% pivot_sample()
+
+# PCA plot 
+counts_scal_PCA %>%
+  pivot_sample() %>%
+  ggplot(aes(x = PC1, y = PC2, colour = Region)) +
+  stat_ellipse(level = 0.9) +
+  geom_point(size = 4) +
+  geom_text_repel(aes(label = ""), show.legend = FALSE) +
+  custom_theme
+
+# Hierarchical clustering - heatmap 
+counts_scaled %>%
+  
+  # extract 500 most variable genes
+  keep_variable(.abundance = counts_scaled, top = 50) %>%
+  
+  # create heatmap
+  heatmap(
+    .column = sample,
+    .row = feature,
+    .value = counts_scaled,
+    transform = log1p
+  )
