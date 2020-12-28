@@ -230,8 +230,8 @@ plot <- No_BvsP %>%
   scale_size_discrete(range = c(0, 2)) +
   theme_bw()
 plot
-ggsave("Hy_BvsP_volcano.svg", plot = plot)
-ggsave("Hy_BvsP_volcano.png", plot = plot)
+ggsave("No_BvsP_volcano.svg", plot = plot)
+ggsave("No_BvsP_volcano.png", plot = plot)
 
 # ========================= venn ==================================
 # ================== BM_HvsN PB_HvsN =============================
@@ -253,8 +253,10 @@ res_BM_HvsN <- comb %in% BMgenes$id
 res_PB_HvsN <- comb %in% PBgenes$id
 
 res <- vennCounts(cbind(res_BM_HvsN, res_PB_HvsN))
-vennDiagram(res, cex = 1, names = c("BM Hyp vs Norm","PB Hyp vs Norm"), circle.col = c("red", "blue"))
 
+png("vennBMPB_HvsN.png")
+vennDiagram(res, cex = 1, names = c("BM Hyp vs Norm","PB Hyp vs Norm"), circle.col = c("red", "blue"))
+dev.off()
 
 # ================== Hyp_BvsP Norm_BvsP =============================
 Hypgenes <- Hy_BvsP %>%
@@ -276,4 +278,10 @@ res_Nor <- comb$id %in% Norgenes$id
 
 
 res <- vennCounts(cbind(res_Hyp, res_Nor))
+png("vennHyp_BvsP.png")
 vennDiagram(res, cex = 1, names = c("Hyp BM vs PB","Nor BM vs PB"), circle.col = c("red", "blue"))
+dev.off()
+
+
+
+# =========================== enrichment/GSEA ===========================
