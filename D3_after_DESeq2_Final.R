@@ -403,17 +403,20 @@ Hyp_ego <- enrichGO(names(common_Hyp), OrgDb = "org.Hs.eg.db",
                    keyType = "SYMBOL", ont = "BP", pvalueCutoff = 0.05)
 barplot(Hyp_ego, showCategory = 10)
 goplot(Hyp_ego)
+
+
 #gsea
 
 Hyp_gH <- fgsea(pathway.HALLMARK, PB_HvsN_rnk, maxSize = 500, minSize = 5, eps = 0)
 plotEnrichment(pathway.HALLMARK[["HALLMARK_HYPOXIA"]], BM_HvsN_rnk) + labs(title = "HALLMARK_HYPOXIA")
 
 
-Hy_BvsP_gC7 <- GSEA(Hy_BvsP_rnk, exponent = 1, minGSSize = 10, maxGSSize = 500, eps = 0, pvalueCutoff = 0.05,
+Hy_BvsP_gC7 <- GSEA(Hy_BvsP_rnk, exponent = 1, minGSSize = 10, maxGSSize = 500, eps = 0, pvalueCutoff = 0.001,
                    TERM2GENE = C7, by = "fgsea")
-Hy_BvsP_gC7
 
 dotplot(BM_HvsN_gH, showCategory = 15)
 
-gseaplot2(BM_HvsN_gH, geneSetID = "GSE23321_CENTRAL_MEMORY_VS_NAIVE_CD8_TCELL_UP")
+BM_gH <- GSEA(BM_HvsN_rnk, exponent = 1, minGSSize = 5, maxGSSize = 500, eps = 0, pvalueCutoff = 0.05,
+              TERM2GENE = HALLMARK, by = "fgsea")
+gseaplot2(BM_gH, geneSetID = "HALLMARK_HYPOXIA")
 

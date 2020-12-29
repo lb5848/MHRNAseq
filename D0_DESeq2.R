@@ -189,7 +189,7 @@ counts_scal_PCA %>%
 counts_scaled %>%
   
   # extract 500 most variable genes
-  keep_variable(.abundance = counts_scaled, top = 50) %>%
+  keep_variable(.abundance = counts_scaled, top = 500) %>%
   
   # create heatmap
   heatmap(
