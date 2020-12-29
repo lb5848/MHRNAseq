@@ -31,6 +31,14 @@ library(systemPipeR)
 library(ggVennDiagram)
 library(limma)
 
+# gene enrichment analysis packages
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(hciRdata)
+library(enrichplot)
+library(DOSE)
+library(fgsea)
+
 
 
 
@@ -50,6 +58,11 @@ setwd(dirPath)
 savePath <- file.path(dirPath, "results")
 saveDir <- file.path(dirPath, "results")
 dir.create(savePath)
+
+resPath <- file.path(dirPath, "results")
+resDir <- file.path(dirPath, "results")
+filePath <- file.path(resPath, "csv_files")
+
 
 setwd(savePath)
 
@@ -240,36 +253,38 @@ BMup <- BM_HvsN %>%
   mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
   filter(significant) %>%
   filter(log2FoldChange > 0) %>%
-  select(id)
+  dplyr::select(id)
 dim(BMup)
 
 PBup <- PB_HvsN %>%
   mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
   filter(significant) %>%
   filter(log2FoldChange > 0) %>%
-  select(id)
+  dplyr::select(id)
 
-setlistup <- list( "BM Hyp vs Nor" = sample(BMup$id, length(BMup$id)), "PB Hyp vs Nor" = sample(PBup$id, length(PBup$id)))
+setlistup <- list( "BM Hyp vs Nor" = sample(BMup$id, length(BMup$id)), 
+                   "PB Hyp vs Nor" = sample(PBup$id, length(PBup$id)))
 
 BMdown <- BM_HvsN %>%
   mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
   filter(significant) %>%
   filter(log2FoldChange < 0) %>%
-  select(id)
+  dplyr::select(id)
 
 PBdown <- PB_HvsN %>%
   mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
   filter(significant) %>%
   filter(log2FoldChange < 0) %>%
-  select(id)
+  dplyr::select(id)
 
-setlistdown <- list( BM = sample(BMdown$id, length(BMdown$id)), PB = sample(PBdown$id, length(PBdown$id)))
+setlistdown <- list( "BM Hyp vs Nor" = sample(BMdown$id, length(BMdown$id)), 
+                     "PB Hyp vs Nor" = sample(PBdown$id, length(PBdown$id)))
 
 vennsetup <- overLapper(setlistup, type = "vennsets")
 vennsetdown <- overLapper(setlistdown, type = "vennsets")
 
 png("vennBMPB_HvsN.png")
-vennPlot(list(vennsetup, vennsetdown), mymain = "DEG BM/PB Hyp vs Nor", lines = "black", lcol = "black",
+vennPlot(list(vennsetdown, vennsetup), mymain = "DEG BM/PB Hyp vs Nor", lines = "black", lcol = "black",
          mysub = "", colmode = 2, ccol = c("blue", "red"))
 dev.off()
 
@@ -278,14 +293,14 @@ Hypup <- Hy_BvsP %>%
   mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
   filter(significant) %>%
   filter(log2FoldChange > 0) %>%
-  select(id)
+  dplyr::select(id)
 dim(Hypup)
 
 Norup <- No_BvsP %>%
   mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
   filter(significant) %>%
   filter(log2FoldChange > 0) %>%
-  select(id)
+  dplyr::select(id)
 dim(Norup)
 
 setlistup <- list( "Hyp BM vs PB" = sample(Hypup$id, length(Hypup$id)), 
@@ -296,26 +311,109 @@ Hypdown <- Hy_BvsP %>%
   mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
   filter(significant) %>%
   filter(log2FoldChange < 0) %>%
-  select(id)
+  dplyr::select(id)
 dim(Hypdown)
 
 Nordown <- No_BvsP %>%
   mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
   filter(significant) %>%
   filter(log2FoldChange < 0) %>%
-  select(id)
+  dplyr::select(id)
 dim(Nordown)
 
 setlistdown <- list( "Hyp BM vs PB" = sample(Hypdown$id, length(Hypdown$id)), 
                    "Nor BM vs PB" = sample(Nordown$id, length(Nordown$id)))
-dim(setlistdown)
 
 vennsetup <- overLapper(setlistup, type = "vennsets")
 vennsetdown <- overLapper(setlistdown, type = "vennsets")
 
 png("vennHypNor_BvsP.png")
-vennPlot(list(vennsetup, vennsetdown), mymain = "DEG Hyp/Nor BM vs PB", lines = "black", lcol = "black",
+vennPlot(list(vennsetdown, vennsetup), mymain = "DEG Hyp/Nor BM vs PB", lines = "black", lcol = "black",
          mysub = "", colmode = 2, ccol = c("blue", "red"))
 dev.off()
 
 # =========================== enrichment/GSEA ===========================
+# load msigdbr
+
+hallmark.path <- paste(filePath, "gene_sets", "h.all.v7.1.symbols.gmt", sep = "/")
+pathway.HALLMARK <- gmtPathways(hallmark.path)
+HALLMARK <- read.gmt(hallmark.path)
+c7.path <- paste(filePath, "gene_sets", "c7.all.v7.1.symbols.gmt", sep = "/")
+pathway.C7 <- gmtPathways(c7.path)
+C7 <- read.gmt(c7.path)
+head(pathway.C7)
+c5.path <- paste(filePath, "gene_sets", "c5.bp.v7.1.symbols.gmt", sep = "/")
+pathway.C5 <- gmtPathways(c5.path)
+C5 <- read.gmt(c5.path)
+
+
+# use clusterProfiler:: and fgsea
+# consider using fgsea_all (hciR) and write_gsea_rnk() (hciR)
+
+BM_HvsN_rnk <- BM_HvsN %>%
+  mutate(padj = ifelse(is.na(padj), 1, padj)) %>%
+  mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
+  filter(significant) %>%
+  dplyr::select(id, stat) %>%
+  na.omit() %>%
+  distinct() %>%
+  group_by(id) %>%
+  summarise(stat = mean(stat)) %>%
+  arrange(desc(stat)) %>%
+  deframe()
+
+PB_HvsN_rnk <- PB_HvsN %>%
+  mutate(padj = ifelse(is.na(padj), 1, padj)) %>%
+  mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
+  filter(significant) %>%
+  dplyr::select(id, stat) %>%
+  na.omit() %>%
+  distinct() %>%
+  group_by(id) %>%
+  summarise(stat = mean(stat)) %>%
+  arrange(desc(stat)) %>%
+  deframe()
+
+Hy_BvsP_rnk <- Hy_BvsP %>%
+  mutate(padj = ifelse(is.na(padj), 1, padj)) %>%
+  mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
+  filter(significant) %>%
+  dplyr::select(id, stat) %>%
+  na.omit() %>%
+  distinct() %>%
+  group_by(id) %>%
+  summarise(stat = mean(stat)) %>%
+  arrange(desc(stat)) %>%
+  deframe()  
+
+No_BvsP_rnk <- No_BvsP %>%
+  mutate(padj = ifelse(is.na(padj), 1, padj)) %>%
+  mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
+  filter(significant) %>%
+  dplyr::select(id, stat) %>%
+  na.omit() %>%
+  distinct() %>%
+  group_by(id) %>%
+  summarise(stat = mean(stat)) %>%
+  arrange(desc(stat)) %>%
+  deframe()  
+
+#enrich
+Hyp_ego <- enrichGO(names(common_Hyp), OrgDb = "org.Hs.eg.db", 
+                   keyType = "SYMBOL", ont = "BP", pvalueCutoff = 0.05)
+barplot(Hyp_ego, showCategory = 10)
+goplot(Hyp_ego)
+#gsea
+
+Hyp_gH <- fgsea(pathway.HALLMARK, PB_HvsN_rnk, maxSize = 500, minSize = 5, eps = 0)
+plotEnrichment(pathway.HALLMARK[["HALLMARK_HYPOXIA"]], BM_HvsN_rnk) + labs(title = "HALLMARK_HYPOXIA")
+
+
+Hy_BvsP_gC7 <- GSEA(Hy_BvsP_rnk, exponent = 1, minGSSize = 10, maxGSSize = 500, eps = 0, pvalueCutoff = 0.05,
+                   TERM2GENE = C7, by = "fgsea")
+Hy_BvsP_gC7
+
+dotplot(BM_HvsN_gH, showCategory = 15)
+
+gseaplot2(BM_HvsN_gH, geneSetID = "GSE23321_CENTRAL_MEMORY_VS_NAIVE_CD8_TCELL_UP")
+
