@@ -235,53 +235,87 @@ ggsave("No_BvsP_volcano.png", plot = plot)
 
 # ========================= venn ==================================
 # ================== BM_HvsN PB_HvsN =============================
-BMgenes <- BM_HvsN %>%
+
+BMup <- BM_HvsN %>%
   mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
   filter(significant) %>%
+  filter(log2FoldChange > 0) %>%
   select(id)
-dim(BMgenes)
+dim(BMup)
 
-
-PBgenes <- PB_HvsN %>%
+PBup <- PB_HvsN %>%
   mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
   filter(significant) %>%
+  filter(log2FoldChange > 0) %>%
   select(id)
-dim(PBgenes)
 
-comb <- c(BMgenes$id, PBgenes$id)
-res_BM_HvsN <- comb %in% BMgenes$id
-res_PB_HvsN <- comb %in% PBgenes$id
+setlistup <- list( "BM Hyp vs Nor" = sample(BMup$id, length(BMup$id)), "PB Hyp vs Nor" = sample(PBup$id, length(PBup$id)))
 
-res <- vennCounts(cbind(res_BM_HvsN, res_PB_HvsN))
+BMdown <- BM_HvsN %>%
+  mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
+  filter(significant) %>%
+  filter(log2FoldChange < 0) %>%
+  select(id)
+
+PBdown <- PB_HvsN %>%
+  mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
+  filter(significant) %>%
+  filter(log2FoldChange < 0) %>%
+  select(id)
+
+setlistdown <- list( BM = sample(BMdown$id, length(BMdown$id)), PB = sample(PBdown$id, length(PBdown$id)))
+
+vennsetup <- overLapper(setlistup, type = "vennsets")
+vennsetdown <- overLapper(setlistdown, type = "vennsets")
 
 png("vennBMPB_HvsN.png")
-vennDiagram(res, cex = 1, names = c("BM Hyp vs Norm","PB Hyp vs Norm"), circle.col = c("red", "blue"))
+vennPlot(list(vennsetup, vennsetdown), mymain = "DEG BM/PB Hyp vs Nor", lines = "black", lcol = "black",
+         mysub = "", colmode = 2, ccol = c("blue", "red"))
 dev.off()
 
 # ================== Hyp_BvsP Norm_BvsP =============================
-Hypgenes <- Hy_BvsP %>%
+Hypup <- Hy_BvsP %>%
   mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
   filter(significant) %>%
+  filter(log2FoldChange > 0) %>%
   select(id)
-dim(Hypgenes)
+dim(Hypup)
 
-
-Norgenes <- No_BvsP %>%
+Norup <- No_BvsP %>%
   mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
   filter(significant) %>%
+  filter(log2FoldChange > 0) %>%
   select(id)
-dim(Norgenes)
+dim(Norup)
 
-comb <- rbind(Hypgenes, Norgenes)
-res_Hyp <- comb$id %in% Hypgenes$id
-res_Nor <- comb$id %in% Norgenes$id
+setlistup <- list( "Hyp BM vs PB" = sample(Hypup$id, length(Hypup$id)), 
+                   "Nor BM vs PB" = sample(Norup$id, length(Norup$id)))
+summary(setlistup)
 
+Hypdown <- Hy_BvsP %>%
+  mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
+  filter(significant) %>%
+  filter(log2FoldChange < 0) %>%
+  select(id)
+dim(Hypdown)
 
-res <- vennCounts(cbind(res_Hyp, res_Nor))
-png("vennHyp_BvsP.png")
-vennDiagram(res, cex = 1, names = c("Hyp BM vs PB","Nor BM vs PB"), circle.col = c("red", "blue"))
+Nordown <- No_BvsP %>%
+  mutate(significant = padj < 0.01 & abs(log2FoldChange) > 1.5) %>%
+  filter(significant) %>%
+  filter(log2FoldChange < 0) %>%
+  select(id)
+dim(Nordown)
+
+setlistdown <- list( "Hyp BM vs PB" = sample(Hypdown$id, length(Hypdown$id)), 
+                   "Nor BM vs PB" = sample(Nordown$id, length(Nordown$id)))
+dim(setlistdown)
+
+vennsetup <- overLapper(setlistup, type = "vennsets")
+vennsetdown <- overLapper(setlistdown, type = "vennsets")
+
+png("vennHypNor_BvsP.png")
+vennPlot(list(vennsetup, vennsetdown), mymain = "DEG Hyp/Nor BM vs PB", lines = "black", lcol = "black",
+         mysub = "", colmode = 2, ccol = c("blue", "red"))
 dev.off()
-
-
 
 # =========================== enrichment/GSEA ===========================
