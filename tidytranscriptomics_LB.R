@@ -135,12 +135,13 @@ counts_scal_PCA %>%
   theme_bw()
 
 # Reduce data dimensionality with arbitrary number of dimensions
-tt_mds <- counts_scaled %>% reduce_dimensions(method = "MDS", .dims = 6, top = 500)
+tt_mds <- counts_scaled %>% reduce_dimensions(method = "MDS", .dims = 6, top = 1500)
 
 tt_mds %>%
   pivot_sample() %>%
   ggplot(aes(x = Dim1, y = Dim2, colour = group, shape = Region)) +
   geom_point(size = 4) +
+  stat_ellipse(level = 0.65, type = "norm") +
   geom_text_repel(aes(label = ""), show.legend = FALSE) +
   theme_bw()
 
@@ -161,3 +162,38 @@ counts_scaled %>%
     transform = log1p
   )
 
+counts_de <- counts_scaled %>%
+  test_differential_abundance(
+    .formula = ~ 0 + group + ID,
+    .contrasts = c("groupBM_Hyp - groupPB_Hyp"),
+    omit_contrast_in_colnames = TRUE
+  )
+
+counts_de %>% pivot_transcript(.transcript = feature)
+
+topgenes <-
+  counts_de %>%
+  pivot_transcript() %>%
+  arrange(PValue) %>%
+  head(20)
+
+topgenes_symbols <- topgenes %>% pull(feature)
+
+counts_de %>%
+  pivot_transcript() %>%
+  
+  # Subset data
+  filter(.abundant) %>%
+  mutate(significant = FDR < 0.01 & abs(logFC) >= 2) %>%
+  mutate(feature = ifelse(feature %in% topgenes_symbols, as.character(feature), "")) %>%
+  
+  # Plot
+  ggplot(aes(x = logFC, y = PValue, label = feature)) +
+  geom_point(aes(color = significant, size = significant, alpha = significant)) +
+  geom_text_repel() +
+  
+  # Custom scales
+  scale_y_continuous(trans = "log10_reverse") +
+  scale_color_manual(values = c("black", "#e11f28")) +
+  scale_size_discrete(range = c(0, 2)) +
+  theme_bw()

@@ -144,6 +144,34 @@ res_sig <- res %>% lapply(function(x) {
     filter(abs(log2FoldChange) >= log2FC.cutoff)})
 res_sig
 
+volcano <- res[[2]]
+
+topgenes <-
+  volcano %>%
+  pivot_transcript(.transcript = id) %>%
+  arrange(padj) %>%
+  head(6)
+
+topgenes_symbols <- topgenes %>% pull(id)
+
+volcano %>%
+  
+  # Subset data
+  mutate(significant = padj < 0.01 & abs(log2FoldChange) >= 2) %>%
+  mutate(id = ifelse(id %in% topgenes_symbols, as.character(id), "")) %>%
+  
+  # Plot
+  ggplot(aes(x = log2FoldChange, y = padj, label = id)) +
+  geom_point(aes(color = significant, size = significant, alpha = significant)) +
+  geom_text_repel() +
+  
+  # Custom scales
+  scale_y_continuous(trans = "log10_reverse") +
+  scale_color_manual(values = c("black", "#e11f28")) +
+  scale_size_discrete(range = c(0, 2)) +
+  theme_bw()
+
+
 # save csv files - significant genes only - all contrasts
 csvPath <- file.path(savePath, "csv_files")
 dir.create(csvPath)
@@ -189,7 +217,7 @@ gene_clusters <- x %>% cbind(., cluster = cutree(out$tree_row, k = 6)) %>%
 
 # ============================== tidybulk ==================================
 # coerce DESeqDataSet to RangedSummarizedExperiment
-# cts <- rowname_cts %>% filter(rownames(rowname_cts) %in% top500_pca)
+cts <- rowname_cts %>% filter(rownames(rowname_cts) %in% top500_pca)
 dds_tt <- DESeqDataSetFromMatrix(countData = rowname_cts, colData = col.data, 
                                  design = ~ ID + Condition)
 # setup multifactorial design
@@ -197,7 +225,7 @@ dds_tt <- DESeqDataSetFromMatrix(countData = rowname_cts, colData = col.data,
 # create "group" - ?levels "BM_Norm", "PBL_Norm", "BM_Hyp", "PBL_Hyp"
 dds_tt$group <- factor(paste0(dds_tt$Region, "_", dds_tt$Condition),
                     levels = c("BM_Norm", "PBL_Norm", "BM_Hyp", "PBL_Hyp"))
-design(dds_tt) <- formula(~ group + ID)
+design(dds_tt) <- formula(~ ID + group)
 
 # Pre-Filtering
 dim(dds_tt)
@@ -253,8 +281,6 @@ counts_scaled %>%
   facet_wrap(~ source) +
   scale_x_log10() +
   custom_theme
-
-
 
 counts_scal_PCA <-
   counts_scaled %>%

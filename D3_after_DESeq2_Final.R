@@ -603,17 +603,20 @@ aMILvsaPBL_gH <- GSEA(aMILvsaPBL_rnk, exponent = 1, minGSSize = 5, maxGSSize = 5
 aMILvsaPBL_gH@result$ID
 svg("GSEAHALLMARK_aMILs_aPBLs.svg")
 gseaplot2(aMILvsaPBL_gH, geneSetID = c("HALLMARK_HYPOXIA" , "HALLMARK_MTORC1_SIGNALING", 
-                                       "HALLMARK_FATTY_ACID_METABOLISM", "HALLMARK_P53_PATHWAY"  ), 
+                                       "HALLMARK_FATTY_ACID_METABOLISM", "HALLMARK_P53_PATHWAY"), 
           title = "aMILs vs aPBLs", ES_geom = "line")
 dev.off()
+
+gseaplot2(aMILvsaPBL_gH, geneSetID = c("HALLMARK_APOPTOSIS"), 
+          title = "aMILs vs aPBLs", ES_geom = "line")
 
 aMILvsaPBL_gC5 <- GSEA(aMILvsaPBL_rnk, exponent = 1, minGSSize = 15, maxGSSize = 500, eps = 0, pvalueCutoff = 0.05,
                            TERM2GENE = C5, by = "fgsea")
 aMILvsaPBL_gC5@result$ID
-aMILvsaPBL_gC5@result$ID[grep("RESPONSE_TO", aMILvsaPBL_gC5@result$ID)]
+aMILvsaPBL_gC5@result$ID[grep("APOPT", aMILvsaPBL_gC5@result$ID)]
 
 svg("GSEAC5_aMILs_aPBLs.svg")
-gseaplot2(aMILvsaPBL_gC5, geneSetID = c("GO_RESPONSE_TO_CYTOKINE", "GO_RESPONSE_TO_INTERFERON_GAMMA" ), 
+gseaplot2(aMILvsaPBL_gC5, geneSetID = c("GO_RESPONSE_TO_CYTOKINE", "GO_RESPONSE_TO_INTERFERON_GAMMA"), 
           title = "aMILs vs aPBLs", ES_geom = "line")
 dev.off()
 
