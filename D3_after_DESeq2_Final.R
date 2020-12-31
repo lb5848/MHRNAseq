@@ -689,7 +689,7 @@ BM_HvN_gCUSTOM <- GSEA(BM_HvsN_rnk, exponent = 1, minGSSize = 5, maxGSSize = 500
 BM_HvN_gCUSTOM@result$ID
 
 svg("GSEACUSTOM_BM_HvsN.svg")
-gseaplot2(Hyp_BvP_gCUSTOM, geneSetID =c("LeonePowell_UP", "IL2vsIL21_UP"), ES_geom = "dot")
+gseaplot2(Hyp_BvP_gCUSTOM, geneSetID =c("LeonePowell_UP", "IL2vsIL21_UP", "IL21LDHivsIL21_UP"), ES_geom = "line")
 dev.off()
 
 BM_HvN_gC5 <- GSEA(BM_HvsN_rnk, exponent = 1, minGSSize = 5, maxGSSize = 500, eps = 0, pvalueCutoff = 0.05,
@@ -698,4 +698,4 @@ BM_HvN_gC5@result$ID
 
 BM_HvN_gC7 <- GSEA(BM_HvsN_rnk, exponent = 1, minGSSize = 5, maxGSSize = 500, eps = 0, pvalueCutoff = 0.05,
                    TERM2GENE = C7, by = "fgsea")
-BM_HvN_gC7@result$ID
+BM_HvN_gC7@result$ID[grep("STEM", BM_HvN_gC7@result$ID)]
